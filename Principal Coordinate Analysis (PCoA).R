@@ -1,7 +1,4 @@
-# Principal coordinate analysis: validated, inspectable, domain-neutral helpers.
-# Version 1.0.0 | 2026-09-10 | R >= 4.1 (native pipe in the demo).
-# Core fitting uses base/recommended R only. No packages are installed on source().
-# References and execution status: SOURCES.md and VALIDATION.md.
+# Version 1.0.0 | 2026-09-10
 
 validate_dissimilarity <- function(d, tol = 1e-10) {
   if (!is.numeric(tol) || length(tol) != 1L || !is.finite(tol) ||
@@ -27,9 +24,8 @@ validate_dissimilarity <- function(d, tol = 1e-10) {
     rn <- sprintf("unit_%03d", seq_len(nrow(D)))
     dimnames(D) <- list(rn, rn)
   }
-  # Only round-off asymmetry/diagonal deviations within the stated tolerance
-  # are normalized. Substantive errors above the tolerance have already stopped.
-  adjustment <- max(abs(D - t(D)), abs(diag(D)))
+  adjustment <- 
+    max(abs(D - t(D)), abs(diag(D)))
   D <- (D / 2 + t(D) / 2)
   diag(D) <- 0
   attr(D, "validation_adjustment_max") <- adjustment
@@ -37,7 +33,6 @@ validate_dissimilarity <- function(d, tol = 1e-10) {
 }
 
 pcoa_gram <- function(D) {
-  # D is UNSQUARED dissimilarity. Double centering creates an inner-product matrix.
   Q <- D^2
   if (any(!is.finite(Q))) stop("Squared distances overflow; rescale distance units.")
   B <- -0.5 * (sweep(sweep(Q, 1L, rowMeans(Q), "-"),
@@ -56,8 +51,7 @@ pcoa_fit <- function(d, k = 2L, correction = c("none", "lingoes", "cailliez"),
   if (unit_scale == 0) stop("All distances are zero: no positive axes or inertia shares exist.")
   if (!is.finite(unit_scale^2) || unit_scale^2 == 0)
     stop("Distance units are outside the supported numeric range; rescale D.")
-  # Normalize for stable eigendecomposition; return coordinates/eigenvalues in
-  # the original distance units / squared units, respectively.
+
   D0 <- D / unit_scale
   original <- eigen(pcoa_gram(D0), symmetric = TRUE)
   cutoff0 <- tol * max(abs(original$values))
@@ -92,8 +86,7 @@ pcoa_fit <- function(d, k = 2L, correction = c("none", "lingoes", "cailliez"),
   idx <- positive[seq_len(used_k)]
   Z <- sweep(spectral$vectors[, idx, drop = FALSE], 2L,
              sqrt(spectral$values[idx]), "*") * unit_scale
-  # A convenient sign convention, NOT substantive axis meaning. Tied eigenspaces
-  # can still rotate across platforms; compare Gram matrices or distances in tests.
+
   for (j in seq_len(ncol(Z))) {
     anchor <- which.max(abs(Z[, j]))
     if (Z[anchor, j] < 0) Z[, j] <- -Z[, j]
@@ -140,7 +133,6 @@ pcoa_diagnostics <- function(fit) {
   dhat <- as.matrix(stats::dist(fit$points))[keep]
   compare <- function(D, target) {
     d <- D[keep]
-    # Normalize first to avoid unnecessary overflow when squaring residuals.
     scale <- max(d)
     residual <- (dhat - d) / scale
     rho <- if (stats::sd(d) > 0 && stats::sd(dhat) > 0)
@@ -170,48 +162,77 @@ pcoa_scores <- function(fit, metadata = NULL, id_col = "id") {
 }
 
 pcoa_axis_labels <- function(fit) {
-  if (!inherits(fit, "jsl_pcoa")) stop("fit must come from pcoa_fit().")
-  s <- head(fit$eigenvalues$positive_share, fit$k_returned)
+  if (!inherits(fit, "jsl_pcoa")) 
+    stop("fit must come from pcoa_fit().")
+  s <- 
+    head(fit$eigenvalues$positive_share, fit$k_returned)
   sprintf("PCoA %d (%.1f%% %s)", seq_along(s), 100 * s, fit$axis_share_basis)
 }
 
-plot_pcoa <- function(fit, metadata = NULL, id_col = "id", group_col = NULL,
-                      dark = TRUE) {
+# PLOTTING:
+plot_pcoa <- function(fit, metadata = NULL, id_col = "id", group_col = NULL, dark = TRUE) {
   if (!requireNamespace("ggplot2", quietly = TRUE))
     stop("plot_pcoa() requires ggplot2. Core fitting and diagnostics do not.")
   if (!is.logical(dark) || length(dark) != 1L || is.na(dark)) stop("dark must be TRUE or FALSE.")
-  dat <- pcoa_scores(fit, metadata, id_col)
+  dat <- 
+    pcoa_scores(fit, metadata, id_col)
   if (fit$k_returned < 2L) stop("A two-axis plot requires two returned positive axes.")
   if (!is.null(group_col) && !group_col %in% names(dat)) stop("Unknown group_col.")
-  labels <- pcoa_axis_labels(fit)
-  g <- ggplot2::ggplot(dat, ggplot2::aes(x = PCoA1, y = PCoA2))
+  labels <- 
+    pcoa_axis_labels(fit)
+  g <- 
+    ggplot2::ggplot(dat, ggplot2::aes(x = PCoA1, y = PCoA2))
   if (is.null(group_col)) {
-    g <- g + ggplot2::geom_point(size = 2.6, colour = if (dark) "#EEE5D9" else "#312632")
+    g <- 
+      g + ggplot2::geom_point(size = 2.6, colour = if (dark) "#EEE5D9" else "#312632")
   } else {
-    dat$.group <- factor(dat[[group_col]])
+    dat$.group <- 
+        factor(dat[[group_col]])
     if (anyNA(dat$.group)) stop("Group labels contain missing values.")
     if (nlevels(dat$.group) > 4L) stop("The compact JSL palette supports up to four groups.")
     colours <- if (dark) c("#C8BCC7", "#A6425D", "#9B80AE", "#92A9BA") else
       c("#312632", "#8D1732", "#65457E", "#4D6B7B")
-    g <- ggplot2::ggplot(dat, ggplot2::aes(x = PCoA1, y = PCoA2,
-                                          colour = .group, shape = .group)) +
-      ggplot2::geom_point(size = 2.6) +
-      ggplot2::scale_colour_manual(values = colours) +
-      ggplot2::labs(colour = group_col, shape = group_col)
+    g <- 
+        ggplot(
+          dat, 
+          aes(
+            x     = PCoA1, 
+            y     = PCoA2, 
+            color = .group, 
+            shape = .group
+          )
+        ) +
+      geom_point(
+        size = 2.5
+      ) +
+      scale_colour_manual(
+        values = colors
+      ) +
+      labs(
+        colour = group_col, 
+        shape  = group_col
+      )
   }
   bg <- if (dark) "#09080B" else "#FFFFFF"
   fg <- if (dark) "#C8BCC7" else "#312632"
-  g + ggplot2::coord_fixed(ratio = 1) +
-    ggplot2::labs(x = labels[1], y = labels[2],
-      title = "Proximity summarizes the chosen dissimilarity",
+  g + coord_fixed(ratio = 1) +
+    labs(
+      x        = labels[1], 
+      y        = labels[2],
+      title    = "Proximity summarizes the chosen dissimilarity",
       subtitle = paste("Correction:", fit$correction_applied),
-      caption = "A descriptive map; group separation is not a significance test.") +
-    ggplot2::theme_minimal(base_size = 11, base_family = "sans") +
-    ggplot2::theme(panel.grid = ggplot2::element_blank(),
-      plot.background = ggplot2::element_rect(fill = bg, colour = NA),
-      panel.background = ggplot2::element_rect(fill = bg, colour = NA),
-      text = ggplot2::element_text(colour = fg),
-      axis.text = ggplot2::element_text(colour = fg),
-      legend.background = ggplot2::element_rect(fill = bg, colour = NA),
-      legend.key = ggplot2::element_rect(fill = bg, colour = NA))
+      caption  = "A descriptive map; group separation is not a significance test."
+    ) +
+    theme_minimal(
+      base_size   = 11, 
+      base_family = "sans"
+    ) +
+    theme(
+      panel.grid        = element_blank(),
+      plot.background   = element_rect(fill = bg, color = NA),
+      panel.background  = element_rect(fill = bg, color = NA),
+      text              = element_text(color = fg),
+      axis.text         = element_text(color = fg),
+      legend.background = element_rect(fill = bg, color = NA),
+      legend.key        = element_rect(fill = bg, color = NA))
 }
