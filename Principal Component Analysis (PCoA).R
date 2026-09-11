@@ -1,7 +1,4 @@
-# PCA / JSL Dark Academic v1.0.0 | 2026-09-10
-# Dependencies: R >= 4.1; base and recommended packages only.
-# Educational reference implementation around stats::prcomp(), not PCoA.
-# All learned transformations are fitted on the supplied TRAINING rows only.
+# v1.0.0 | 2026-09-10
 
 .pca_flag <- function(x, name) {
   if (!is.logical(x) || length(x) != 1L || is.na(x)) {
@@ -49,30 +46,27 @@
   if (!inherits(object, "jsl_pca")) stop("Expected a jsl_pca object.", call. = FALSE)
 }
 
-# Fit centered, ordinary PCA. scale_features=TRUE standardizes each feature.
-# missing='median' learns one training median per feature; it is a simple policy,
-# not a claim that median imputation is appropriate for every missingness process.
-# constant='drop' removes only exactly zero-SD training features and records them.
-# Near-constant features need substantive review and are NOT automatically dropped.
-# k and variance_target are mutually exclusive. With neither, retain numerical rank.
-# rank_tol is relative to the largest singular value; it is NOT a quality threshold.
+
 pca_fit <- function(x, features = NULL, scale_features = TRUE,
                     missing = c("error", "median"),
                     constant = c("error", "drop"),
                     k = NULL, variance_target = NULL,
                     rank_tol = sqrt(.Machine$double.eps)) {
   .pca_flag(scale_features, "scale_features")
-  missing <- match.arg(missing)
-  constant <- match.arg(constant)
-  if (!is.numeric(rank_tol) || length(rank_tol) != 1L ||
-      !is.finite(rank_tol) || rank_tol <= 0 || rank_tol >= 1) {
+  missing <- 
+    match.arg(missing)
+  constant <- 
+    match.arg(constant)
+  if (!is.numeric(rank_tol) || length(rank_tol) != 1L || !is.finite(rank_tol) || rank_tol <= 0 || rank_tol >= 1) {
     stop("rank_tol must be finite and strictly between zero and one.", call. = FALSE)
   }
   if (!is.null(k) && !is.null(variance_target)) {
     stop("Choose either k or variance_target, not both.", call. = FALSE)
   }
-  x <- .pca_matrix(x, features, min_rows = 2L)
-  feature_names <- colnames(x)
+  x <- 
+    .pca_matrix(x, features, min_rows = 2L)
+  feature_names <- 
+    colnames(x)
   if (any(colSums(!is.na(x)) == 0L)) {
     stop("A training feature is entirely missing; no median can be learned.", call. = FALSE)
   }
@@ -127,9 +121,7 @@ pca_fit <- function(x, features = NULL, scale_features = TRUE,
   object
 }
 
-# Applies stored schema, training medians, and recorded feature removal.
-# Extra columns are ignored. Missing required or duplicated column names stop.
-# Row order is preserved; join external metadata by your own stable ID key.
+
 pca_prepare <- function(object, newdata) {
   .pca_object(object)
   x <- .pca_matrix(newdata, object$features)
@@ -160,8 +152,7 @@ pca_loadings <- function(object, k = object$k) {
   object$pca$rotation[, seq_len(k), drop = FALSE]
 }
 
-# These are TRAINING variable-score correlations, not prcomp weight loadings.
-# cor(X_j, T_l) = V_jl * sqrt(lambda_l) / sd(Z_j), with Z centered/scaled.
+
 pca_variable_correlations <- function(object, k = object$k) {
   .pca_object(object)
   k <- .pca_k(k, object$rank)
@@ -170,8 +161,7 @@ pca_variable_correlations <- function(object, k = object$k) {
   sweep(out, 1L, sd_z, "/")
 }
 
-# Reconstruct kept columns only. k=0 gives the training centroid.
-# original_units=FALSE returns the centered/scaled training feature space.
+
 pca_reconstruct <- function(object, newdata = NULL, k = object$k,
                             original_units = TRUE) {
   .pca_object(object)
@@ -198,8 +188,7 @@ pca_reconstruct <- function(object, newdata = NULL, k = object$k,
   zhat
 }
 
-# Error against preprocessed values (including any imputed cells); this is NOT
-# an assessment of missing-value accuracy. Compare k only within the same frame.
+
 pca_reconstruction_error <- function(object, data, k_grid = 0:object$rank) {
   .pca_object(object)
   if (!length(k_grid)) stop("k_grid must not be empty.", call. = FALSE)
